@@ -1,0 +1,9 @@
+target/
+*.iml
+.idea/
+.vscode/
+*.log
+.DS_Store
+terraform/.terraform/
+terraform/*.tfstate*
+terraform/terraform.tfvars

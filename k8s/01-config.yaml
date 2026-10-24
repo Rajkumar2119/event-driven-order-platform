@@ -1,0 +1,26 @@
+# Kafka and PostgreSQL are expected to exist already (for example Amazon MSK + RDS,
+# or the Bitnami Helm charts in a dev cluster). Point these values at them.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: order-platform-config
+  namespace: order-platform
+data:
+  KAFKA_BOOTSTRAP_SERVERS: "kafka.kafka.svc.cluster.local:9092"
+  ORDERS_DB_URL: "jdbc:postgresql://postgres.database.svc.cluster.local:5432/orders_db"
+  PAYMENTS_DB_URL: "jdbc:postgresql://postgres.database.svc.cluster.local:5432/payments_db"
+---
+# Example only. Create real secrets with `kubectl create secret` or an external secrets operator;
+# never commit real credentials.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: order-platform-secrets
+  namespace: order-platform
+type: Opaque
+stringData:
+  ORDERS_DB_USERNAME: orders
+  ORDERS_DB_PASSWORD: change-me
+  PAYMENTS_DB_USERNAME: payments
+  PAYMENTS_DB_PASSWORD: change-me
+  JWT_SECRET: change-me-to-a-long-random-value-of-32-bytes-or-more

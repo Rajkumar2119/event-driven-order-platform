@@ -1,0 +1,18 @@
+# Fast tests: in-memory H2 (PostgreSQL mode) + embedded Kafka. Testcontainers ITs use real PostgreSQL/Kafka.
+spring:
+  datasource:
+    url: jdbc:h2:mem:orders;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  kafka:
+    bootstrap-servers: ${spring.embedded.kafka.brokers}
+
+app:
+  outbox:
+    poll-interval-ms: 100
+
+logging:
+  level:
+    org.apache.kafka: WARN
+    kafka: WARN
+    org.apache.zookeeper: WARN

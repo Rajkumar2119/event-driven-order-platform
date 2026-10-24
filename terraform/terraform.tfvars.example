@@ -1,0 +1,8 @@
+aws_region              = "eu-west-2"
+image_tag               = "latest"
+kafka_bootstrap_servers = "b-1.your-msk-cluster.kafka.eu-west-2.amazonaws.com:9092"
+orders_db_url           = "jdbc:postgresql://your-rds-endpoint:5432/orders_db"
+payments_db_url         = "jdbc:postgresql://your-rds-endpoint:5432/payments_db"
+orders_db_password      = "change-me"
+payments_db_password    = "change-me"
+jwt_secret              = "change-me-to-a-long-random-value-of-32-bytes-or-more"
