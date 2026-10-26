@@ -33,7 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @ActiveProfiles("test")
-@EmbeddedKafka(partitions = 1,
+@EmbeddedKafka(partitions = 3,
         topics = {Topics.ORDERS_CREATED, Topics.ORDERS_CREATED_DLT, Topics.PAYMENTS_RESULTS})
 @DirtiesContext
 class PaymentFlowIntegrationTest {
