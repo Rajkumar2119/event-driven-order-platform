@@ -2,6 +2,7 @@ package com.rajkumar.orders.order.config;
 
 import com.rajkumar.orders.events.Topics;
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.common.TopicPartition;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.TopicBuilder;
@@ -35,6 +36,15 @@ public class KafkaConfig {
      */
     @Bean
     CommonErrorHandler kafkaErrorHandler(KafkaOperations<Object, Object> kafkaTemplate) {
-        return new DefaultErrorHandler(new DeadLetterPublishingRecoverer(kafkaTemplate), new FixedBackOff(1000L, 3));
+        return new DefaultErrorHandler(deadLetterRecoverer(kafkaTemplate), new FixedBackOff(1000L, 3));
+    }
+
+    /**
+     * Publishes to "<topic>.DLT" on the same partition. Spring Kafka 3's default suffix is
+     * "-dlt", which would not match the DLT topics this service creates and monitors.
+     */
+    static DeadLetterPublishingRecoverer deadLetterRecoverer(KafkaOperations<Object, Object> kafkaTemplate) {
+        return new DeadLetterPublishingRecoverer(kafkaTemplate,
+                (record, ex) -> new TopicPartition(record.topic() + Topics.DLT_SUFFIX, record.partition()));
     }
 }
