@@ -10,3 +10,6 @@ logging:
   level:
     org.apache.kafka: WARN
     kafka: WARN
+    # Shows dead-letter publishing in the test output, so a DLT test failure is easy to diagnose.
+    org.springframework.kafka.listener.DeadLetterPublishingRecoverer: DEBUG
+    org.springframework.kafka.listener.DefaultErrorHandler: DEBUG

@@ -9,6 +9,7 @@ import com.rajkumar.orders.payment.domain.PaymentRepository;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.kafka.test.EmbeddedKafkaBroker;
 import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
@@ -26,8 +28,10 @@ import org.springframework.test.context.ActiveProfiles;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -101,17 +105,33 @@ class PaymentFlowIntegrationTest {
     }
 
     @Test
-    void unreadableMessageGoesToDeadLetterTopic() {
+    void unreadableMessageGoesToDeadLetterTopic() throws Exception {
         String key = "poison-" + UUID.randomUUID();
-        Map<String, Object> producerProps = KafkaTestUtils.producerProps(broker);
-        var rawTemplate = new KafkaTemplate<>(
-                new DefaultKafkaProducerFactory<>(producerProps, new StringSerializer(), new StringSerializer()));
+        DefaultKafkaProducerFactory<String, String> rawProducerFactory = new DefaultKafkaProducerFactory<>(
+                KafkaTestUtils.producerProps(broker), new StringSerializer(), new StringSerializer());
+        Map<String, Object> consumerProps = KafkaTestUtils.consumerProps("it-dlt", "false", broker);
 
-        try (Consumer<String, String> dlt = consumer("it-dlt", Topics.ORDERS_CREATED_DLT)) {
-            rawTemplate.send(new ProducerRecord<>(Topics.ORDERS_CREATED, key, "{ this is not json"));
+        try (Consumer<String, String> dlt = new DefaultKafkaConsumerFactory<>(
+                consumerProps, new StringDeserializer(), new StringDeserializer()).createConsumer()) {
+            // Read every DLT partition from the start, without depending on a consumer-group rebalance.
+            List<TopicPartition> partitions = dlt.partitionsFor(Topics.ORDERS_CREATED_DLT).stream()
+                    .map(p -> new TopicPartition(p.topic(), p.partition()))
+                    .toList();
+            dlt.assign(partitions);
+            dlt.seekToBeginning(partitions);
+
+            // Wait for the broker to acknowledge the poison message, so a failed send is reported here.
+            new KafkaTemplate<>(rawProducerFactory)
+                    .send(new ProducerRecord<>(Topics.ORDERS_CREATED, key, "{ this is not json"))
+                    .get(10, TimeUnit.SECONDS);
 
             ConsumerRecord<String, String> parked = pollForKey(dlt, key);
             assertThat(parked.topic()).isEqualTo(Topics.ORDERS_CREATED_DLT);
+            assertThat(parked.headers().lastHeader(KafkaHeaders.DLT_EXCEPTION_FQCN))
+                    .as("DeadLetterPublishingRecoverer adds the exception class as a header")
+                    .isNotNull();
+        } finally {
+            rawProducerFactory.destroy();
         }
     }
 
@@ -125,7 +145,7 @@ class PaymentFlowIntegrationTest {
     }
 
     private static ConsumerRecord<String, String> pollForKey(Consumer<String, String> consumer, String key) {
-        long deadline = System.currentTimeMillis() + 20_000;
+        long deadline = System.currentTimeMillis() + 30_000;
         while (System.currentTimeMillis() < deadline) {
             for (ConsumerRecord<String, String> record : KafkaTestUtils.getRecords(consumer, Duration.ofSeconds(1))) {
                 if (key.equals(record.key())) {
@@ -133,7 +153,7 @@ class PaymentFlowIntegrationTest {
                 }
             }
         }
-        throw new AssertionError("No record with key " + key + " within 20s");
+        throw new AssertionError("No record with key " + key + " within 30s");
     }
 
     private static OrderCreatedEvent event(BigDecimal amount, String currency) {

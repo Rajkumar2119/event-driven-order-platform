@@ -39,7 +39,7 @@ import static org.awaitility.Awaitility.await;
  */
 @SpringBootTest
 @ActiveProfiles("test")
-@EmbeddedKafka(partitions = 1, topics = {Topics.ORDERS_CREATED, Topics.PAYMENTS_RESULTS, Topics.PAYMENTS_RESULTS_DLT})
+@EmbeddedKafka(partitions = 3, topics = {Topics.ORDERS_CREATED, Topics.PAYMENTS_RESULTS, Topics.PAYMENTS_RESULTS_DLT})
 @DirtiesContext
 class OrderFlowIntegrationTest {
 
